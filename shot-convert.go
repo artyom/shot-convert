@@ -23,16 +23,17 @@ func main() {
 	args := struct {
 		Dir    string `flag:"dir,directory to watch"`
 		Prefix string `flag:"prefix,file prefix"`
-	}{Dir: "$HOME/Downloads", Prefix: "Screen Shot"}
+		Q      int    `flag:"q,jpeg quality"`
+	}{Dir: "$HOME/Downloads", Prefix: "Screen Shot", Q: 90}
 	autoflags.Define(&args)
 	flag.Parse()
-	if err := do(os.ExpandEnv(args.Dir), args.Prefix); err != nil {
+	if err := do(os.ExpandEnv(args.Dir), args.Prefix, args.Q); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func do(dir, prefix string) error {
+func do(dir, prefix string, quality int) error {
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
 		return err
@@ -50,7 +51,7 @@ func do(dir, prefix string) error {
 			select {
 			case name := <-nameCh:
 				time.Sleep(500 * time.Millisecond)
-				if err := convert(name); err != nil {
+				if err := convert(name, quality); err != nil {
 					errCh <- err
 				}
 			case <-ctx.Done():
@@ -76,7 +77,7 @@ func do(dir, prefix string) error {
 	}
 }
 
-func convert(name string) error {
+func convert(name string, quality int) error {
 	jpegName := strings.TrimSuffix(name, suffix) + ".jpg"
 	if _, err := os.Stat(jpegName); err == nil {
 		return nil
@@ -96,7 +97,7 @@ func convert(name string) error {
 	}
 	defer tf.Close()
 	defer os.Remove(tf.Name())
-	if err := jpeg.Encode(tf, img, &jpeg.Options{Quality: 90}); err != nil {
+	if err := jpeg.Encode(tf, img, &jpeg.Options{Quality: quality}); err != nil {
 		return err
 	}
 	if err := tf.Close(); err != nil {
